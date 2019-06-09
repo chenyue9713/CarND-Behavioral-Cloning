@@ -14,10 +14,12 @@ Considering the training efficiency, I train my network on AWS most of the time.
 ## Data Collection and preprocessing
 ### Data Collection
 In practice when we drive a car in real life, we also need to control the car to recover back in the middle of the road if it gets off the side of the road. So my automatic car needs to predict the steering angle when the car will run off to the side of the road and make a turn to come back in the middle of the road. so I created the scenario that I drove the car to wander off to the side of the road and then turn back to the middle. 
-And if I used the keyboard to control vehicle, the distribute of steers will dominate at 0.0 like the following figure: 
+And if I used the keyboard to control vehicle, the distribute of steers will dominate at 0.0 like the following figure:
+ 
 ![png](Figures/keyboard.png)
 
 However, if it was controlled by the mouse, the issue will be relieved in some way, like the following figure:
+
 ![png](Figures/mouse.png)
 
 In summary, the strategy for collecting data is the following:
@@ -34,33 +36,41 @@ It is easy to draw a conclusion that for the left camera, the steering angle wou
 
 ### Data Preprocess
 From the above figures, we can see that there are some noise on the figures, such as trees, sky, rock, lake and so on. The thing we care about is the lane on the road. So I cropped the image to 60X180. And the images will like below:
+
 ![png](Figures/cropping_images.png)
 
 And before augmenting data, it is necessary to check the distribution of steers. The original distribution of the data like the following:
+
 ![png](Figures/org_dist.png)
 
 It is easy to see that the number of steers located around 0.0 is much high than the rest of steers. If we feeding the data into our neural network, the model will tend to predict the vehicle go straight and have some difficulty to turn left/right. Therefore we need to remove some data located at steer 0.0. And the new distribution of data is below:
+
 ![png](Figures/new_dist.png)
 
 
 ### Data Augmentation
 #### Flipped images
 Because there is more left turns in track 1, so the data captured by camera biased toward left turns, which might cuase the car will have some trouble on the right turn. the solution for the problem is that the data colloected by cameras will be flipped vertically, which neutralized the left turn bias. And steers will be the opposite.
+
 ![png](Figures/flip.png)
 The distribution of steers in my data set shows below 
+
 ![png](Figures/flip_dist.png)
 
 #### Load left/right cameras' images
 The purpose to introduce left/right cameras images is that images are captured by left/right cameras can simulate the scenario that vehicle drives off the road for both sides and recover to the center of the road. And correspondingly, steer values also need to be modified for both cameras. I added 0.25 on steer for left cameras and subtrated 0.25 on steer for the right cameras. The idea is that the vehicle need to move right under the left camera image and vehicle need to move left under right camera image.
+
 ![png](Figures/LR_image.png)
 
 #### Changing Brightness of images
 In the reality, vehicle should handle different light conditions, such as day and night. I convert image's color space from RGB to YUV and scaling Y channel from 0.5 to 1.5 randomly in converted YUV image.
 And image listed in following:
+
 ![png](Figures/brightness.png)
 
 ### Translating images
 Shifting image vertically is to simulate the vehicle drive an up or downslope. And similarly, shifting image horizontally also simulate vehicle driving at a different position on the road, and the steer should be modified correspondingly according the position vehicle located at. If an image shift right, the steer will be added by 0.004 per pixel. And when image shift left, the steer will be subtracted by 0.004 per pixel.
+
 ![png](Figures/translate.png)
 
 ### Randomly shadow images(inspired by .[Jeremy Shannon's POST]( https://github.com/jeremy-shannon/CarND-Behavioral-Cloning-Project))
