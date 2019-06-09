@@ -2,42 +2,75 @@
 
 ## Overview
 
-In this project, I will implement deep learning to effciently teach a car to drive automatically in a driving simulator provided by Udacity.
-The techniques is called [Behavioral Cloning](https://link.springer.com/content/pdf/10.1007%2F978-1-4899-7687-1_69.pdf), which definition is:
+In this project, I will implement deep learning to efficiently teach a car to drive automatically in a driving simulator provided by Udacity.
+The techniques are called [Behavioral Cloning](https://link.springer.com/content/pdf/10.1007%2F978-1-4899-7687-1_69.pdf), which definition is:
 
-      Behavioral cloning is a method by which human subcognitive skills can be captured and reproduced in a computer program. As the human
-      subject performs the skill, his or her actions are recorded along with the situation that gave rise to the action. A log of these records is used as input
-      to a learning program. The learning program outputs a set of rules that reproduce the skilled behavior. This method can be used to construct
-      automatic control systems for complex tasks for which classical control theory is inadequate. It can also be used for training.
+      Behavioral cloning is a method by which human subcognitive skills can be captured and reproduced in a computer program. As the human subject performs the skill, his or her actions are recorded along with the situation that gave rise to the action. A log of these records is used as input to a learning program. The learning program outputs a set of rules that reproduce skilled behavior. This method can be used to construct automatic control systems for complex tasks for which classical control theory is inadequate. It can also be used for training.
 
-The CNN I used was based on NVIDIA's [End to End Learning for Self-Driving Cars](https://arxiv.org/pdf/1604.07316v1.pdf) paper with dropout for avoiding overfit. 
-Considering the training efficiency, I train my network on AWS at most of time.
+The CNN I used was based on NVIDIA's [End to End Learning for Self-Driving Cars](https://arxiv.org/pdf/1604.07316v1.pdf) paper with dropout for avoiding overfitting. 
+Considering the training efficiency, I train my network on AWS most of the time.
 
 
-## Data Collection and preprocess
+## Data Collection and preprocessing
 ### Data Collection
-In order to train my car to handle different situations such as left turn, right turn for different steering angles, cross bridge and so on. When I drived car on track 1, I found there is some left turns but only one right turn. in other words, track 1 has a left turn bias and data was biased towards left turns, which might cuase the car will have some trouble on right turn. the solution for the problem is that I drived counter-clockwise, which neutralized the left turn bias.
+In practice when we drive a car in real life, we also need to control the car to recover back in the middle of the road if it gets off the side of the road. So my automatic car needs to predict the steering angle when the car will run off to the side of the road and make a turn to come back in the middle of the road. so I created the scenario that I drove the car to wander off to the side of the road and then turn back to the middle. 
+And if I used the keyboard to control vehicle, the distribute of steers will dominate at 0.0 like the following figure: 
+![png](Figures/keyboard.png)
 
-What's more, in practice when we drive car in real life, we also need to control car to recover back at middle of road if it gets oof the side of road. So my automaitc car need to predict the steering angel when car will run off to the side of road and make a turn to come back at middle of road. so I created the scenario that I drived car wander off to the side of road and then turn back to the middle. 
+However, if it was controlled by the mouse, the issue will be relieved in some way, like the following figure:
+![png](Figures/mouse.png)
 
-So at the end, I drive my car run 4 laps for normal clockwise driving, 4 laps for counter-clockwise driving, and 3 laps for "recovery" driving. So the total number of center camera images are 5400. 
+In summary, the strategy for collecting data is the following:
+   * 2 laps for normal clockwise driving
+   * 2 laps for "recovery" driving. 
 
-Further more, the real self-driving car has multiple cameras for recording images. From different perspective of camera, the steering angles would be different, which can be explained in blow figure:
+Furthermore, the real self-driving car has multiple cameras for recording images. From a different perspective of the camera, the steering angles would be different, which can be explained in below figure:
 
 ![png](Figures/3cameras.png)
 
-It is easy to draw a conclusion that for left camera, the steering angle would be less than the steering angle from the cneter camera. From the right camera's perspective, the steering angle would be larger than the angle from the center camera. 
-The images captured from cameras like below:
-![png](Figures/data_3cameras.png)
+It is easy to draw a conclusion that for the left camera, the steering angle would be less than the steering angle from the cneter camera. From the right camera's perspective, the steering angle would be larger than the angle from the center camera. 
+
 
 
 ### Data Preprocess
-From the above figures, we can see that there are some nosie on the figures, such as trees, sky, rock, lake and so on. The thing we care about is the lane on the road. So I cropped the image to 60X180. And the images will like below:
+From the above figures, we can see that there are some noise on the figures, such as trees, sky, rock, lake and so on. The thing we care about is the lane on the road. So I cropped the image to 60X180. And the images will like below:
 ![png](Figures/cropping_images.png)
+
+And before augmenting data, it is necessary to check the distribution of steers. The original distribution of the data like the following:
+![png](Figures/org_dist.png)
+
+It is easy to see that the number of steers located around 0.0 is much high than the rest of steers. If we feeding the data into our neural network, the model will tend to predict the vehicle go straight and have some difficulty to turn left/right. Therefore we need to remove some data located at steer 0.0. And the new distribution of data is below:
+![png](Figures/new_dist.png)
+
+
+### Data Augmentation
+#### Flipped images
+Because there is more left turns in track 1, so the data captured by camera biased toward left turns, which might cuase the car will have some trouble on the right turn. the solution for the problem is that the data colloected by cameras will be flipped vertically, which neutralized the left turn bias. And steers will be the opposite.
+![png](Figures/flip.png)
+The distribution of steers in my data set shows below 
+![png](Figures/flip_dist.png)
+
+#### Load left/right cameras' images
+The purpose to introduce left/right cameras images is that images are captured by left/right cameras can simulate the scenario that vehicle drives off the road for both sides and recover to the center of the road. And correspondingly, steer values also need to be modified for both cameras. I added 0.25 on steer for left cameras and subtrated 0.25 on steer for the right cameras. The idea is that the vehicle need to move right under the left camera image and vehicle need to move left under right camera image.
+![png](Figures/LR_image.png)
+
+#### Changing Brightness of images
+In the reality, vehicle should handle different light conditions, such as day and night. I convert image's color space from RGB to YUV and scaling Y channel from 0.5 to 1.5 randomly in converted YUV image.
+And image listed in following:
+![png](Figures/brightness.png)
+
+### Translating images
+Shifting image vertically is to simulate the vehicle drive an up or downslope. And similarly, shifting image horizontally also simulate vehicle driving at a different position on the road, and the steer should be modified correspondingly according the position vehicle located at. If an image shift right, the steer will be added by 0.004 per pixel. And when image shift left, the steer will be subtracted by 0.004 per pixel.
+![png](Figures/translate.png)
+
+### Randomly shadow images(inspired by .[Jeremy Shannon's POST]( https://github.com/jeremy-shannon/CarND-Behavioral-Cloning-Project))
+We can image a scensrio that vehicle can drive through an area what is shadowed by trees or other builds. 
+
+![png](Figures/shadow.png)
 
 
 ## Model Architecture
-Instead of LeNet, in the projecet I implemented the model mentioned in NVIDIA's End to End Learning for Self-Driving Cars paper, the architecture like following figure:
+Instead of LeNet, in the project I implemented the model mentioned in NVIDIA's End to End Learning for Self-Driving Cars paper, the architecture like following figure:
 
 ![png](Figures/nVidia_model.png)
 
